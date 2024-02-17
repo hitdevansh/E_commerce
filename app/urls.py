@@ -45,9 +45,11 @@ urlpatterns = [
     path('password-reset/done/',auth_views.PasswordResetView.as_view(template_name  = 'app/password_reset_done.html'),name = 'password_reset_done'),
     path('password-reset-confirm/<uidb64>/<token>/',auth_views.PasswordResetConfirmView.as_view(template_name  = 'app/password_reset_confirm.html',form_class=MySetPassword),name = 'password_reset_confirm'),
     path('password-rese-complete/done/',auth_views.PasswordResetCompleteView.as_view(template_name  = 'app/password_reset_complete.html'),name = 'password_reset_complete'),
-
+    path('change-password/<token>/' , views.ChangePassword , name="change_password"),
     path('registration/', views.CustomerRegistrationView.as_view(), name='customerregistration'),
+    path('forget-password/' , views.ForgetPassword , name="forget_password"),
     path('checkout/', views.checkout, name='checkout'),
     path('paymentdone/', views.payment_done, name='paymentdone'),
 
 ]+static(settings.MEDIA_URL,document_root=settings.MEDIA_ROOT)
+urlpatterns+=static(settings.STATIC_URL,document_root=settings.STATIC_ROOT)

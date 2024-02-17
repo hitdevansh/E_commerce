@@ -106,3 +106,33 @@ class OrderPlaced(models.Model):
     @property
     def total_cost(self):
         return self.quantity*self.product.discounted_price
+
+from django.db import models
+from django.contrib.auth.models import User
+from django.utils import timezone
+import uuid
+
+class PasswordResetToken(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    token = models.UUIDField(default=uuid.uuid4, editable=True)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    def __str__(self):
+        return f"Token for {self.user.username}"
+
+    @classmethod
+    def create_token(cls, user):
+        return cls.objects.create(user=user)
+
+    @classmethod
+    def get_token(cls, token):
+        try:
+            return cls.objects.get(token=token)
+        except cls.DoesNotExist:
+            return None
+
+    @classmethod
+    def delete_token(cls, token):
+        cls.objects.filter(token=token).delete()
+
+       

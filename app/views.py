@@ -1,12 +1,92 @@
 from django.shortcuts import render,redirect
 from django.views import View
-from .models import Customer,Product,Cart,OrderPlaced
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
+from .models import Customer,Product,Cart,OrderPlaced,PasswordResetToken
 from .forms import CustomerRegistrationForm,CustomerProfileForm
 from django.contrib import messages
 from django.db.models import Q
+from django.contrib.auth.models import User
+from .helpers import send_forget_password_mail
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.utils.decorators import method_decorator 
+from django.shortcuts import render, redirect
+import uuid
+
+
+
+def ForgetPassword(request):
+    try:
+        if request.method == 'POST':
+            username = request.POST.get('username')
+            
+            user_obj = User.objects.filter(username=username).first()
+            if not user_obj:
+                messages.error(request, 'No user found with this username.')
+                return redirect('/forget-password/')
+            
+            # Generate a unique token
+            token = str(uuid.uuid4())
+            
+            # Create or update the PasswordResetToken
+            password_reset_token, created = PasswordResetToken.objects.get_or_create(user=user_obj)
+            password_reset_token.token = token
+            password_reset_token.save()
+            
+            # Send email with forget password token
+            # send_forget_password_mail(user_obj.email, token)
+            
+            messages.success(request, 'An email has been sent with instructions to reset your password.')
+            return redirect('/forget-password/')
+                
+    except Exception as e:
+        print(e)
+        messages.error(request, 'An error occurred while processing your request.')
+    
+    return render(request, 'app/forget-password.html')
+
+def ChangePassword(request, token):
+    context = {}
+
+    try:
+        # profile_obj = User.objects.filter(forget_password_token=token).first()
+        profile_obj = PasswordResetToken.objects.filter(token=token).first()
+        context = {'user_id': profile_obj.user.id}
+
+        if request.method == 'POST':
+            new_password = request.POST.get('new_password')
+            confirm_password = request.POST.get('reconfirm_password')
+            user_id = request.POST.get('user_id')
+
+            if user_id is None:
+                messages.error(request, 'No user id found.')
+                return redirect(f'/change-password/{token}/')
+
+            if new_password != confirm_password:
+                messages.error(request, 'Passwords do not match.')
+                return redirect(f'/change-password/{token}/')
+
+            user_obj = User.objects.get(id=user_id)
+
+            # Validate the new password using custom constraints
+            try:
+                validate_custom_password(new_password)
+            except ValidationError as e:
+                messages.error(request, f"Password validation failed: {', '.join(e.messages)}")
+                return redirect(f'/change-password/{token}/')
+
+            user_obj.set_password(new_password)
+            user_obj.save()
+            return redirect('/accounts/login/')
+
+    except Exception as e:
+        messages.error(request, f"An error occurred: {e}")
+
+    return render(request, 'app/change-password.html', context)
+
+
+
 
 class CustomerRegistrationView(View):
     def get(self,request):
@@ -221,3 +301,21 @@ class ProfileView(View):
             reg.save()
             messages.success(request,'Congratulations!! Your profile has been updated successfully!!')
         return render(request,'app/profile.html',{'form':form,'active':'btn-primary'})
+    
+
+
+# password constrints
+def validate_custom_password(password):
+    # Implement your custom password constraints
+    # Example: Minimum length 8, maximum length 12, at least one special character, one uppercase letter, and one digit
+    if len(password) < 8 or len(password) > 12:
+        raise ValidationError("Password must be between 8 and 12 characters.")
+
+    if not any(char.isdigit() for char in password):
+        raise ValidationError("Password must contain at least one digit.")
+
+    if not any(char.isupper() for char in password):
+        raise ValidationError("Password must contain at least one uppercase letter.")
+
+    if not any(char.isalnum() for char in password):
+        raise ValidationError("Password must contain at least one special character.")

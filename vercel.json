@@ -19,7 +19,7 @@
         },
         {
             "src": "/(.*)",
-            "dest": "naivebaker/wsgi.py"
+            "dest": "app/wsgi.py"
         }
     ]
 }
